@@ -9,7 +9,8 @@ box_annotator = sv.BoundingBoxAnnotator()
 label_annotator = sv.LabelAnnotator()
 # trace_annotator = sv.TraceAnnotator()
 
-entity_detected = []
+entity_detected = {}
+cooldown = 5
 
 
 def callback(frame: np.ndarray, _: int) -> np.ndarray:
@@ -23,15 +24,17 @@ def callback(frame: np.ndarray, _: int) -> np.ndarray:
         labels.append(f"#{tracker_id} {results.names[class_id]}")
 
         # detecção de entrada
-        if not tracker_id in entity_detected:
-            entity_detected.append(tracker_id)
+        if not tracker_id in entity_detected.keys():
+            entity_detected[tracker_id] = cooldown
             print(f"{tracker_id} entrou")
 
     # detecção de saída
-    for i in entity_detected:
+    for i in list(entity_detected.keys()):
         if not i in detections.tracker_id:
-            entity_detected.remove(i)
-            print(f"{i} saiu")
+            entity_detected[i] -= 1
+            if entity_detected[i] == 0:
+                del entity_detected[i]
+                print(f"{i} Saiu")
 
     annotated_frame = box_annotator.annotate(frame.copy(), detections=detections)
     return label_annotator.annotate(
