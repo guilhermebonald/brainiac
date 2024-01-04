@@ -10,12 +10,13 @@ label_annotator = sv.LabelAnnotator()
 # trace_annotator = sv.TraceAnnotator()
 
 entity_detected = {}
-cooldown = 5
+countdown = 30  # Frames
 
 
 def callback(frame: np.ndarray, _: int) -> np.ndarray:
     results = model(frame)[0]
     detections = sv.Detections.from_ultralytics(results)
+    detections = detections[detections.class_id == 0]
     detections = tracker.update_with_detections(detections)
 
     labels = []
@@ -24,9 +25,11 @@ def callback(frame: np.ndarray, _: int) -> np.ndarray:
         labels.append(f"#{tracker_id} {results.names[class_id]}")
 
         # detecção de entrada
-        if not tracker_id in entity_detected.keys():
-            entity_detected[tracker_id] = cooldown
+        if not tracker_id in list(entity_detected.keys()):
+            entity_detected[tracker_id] = countdown
             print(f"{tracker_id} entrou")
+            with open("presence.txt", "a") as file:
+                file.write(f"\nPessoa {tracker_id} entrou.")
 
     # detecção de saída
     for i in list(entity_detected.keys()):
@@ -35,6 +38,8 @@ def callback(frame: np.ndarray, _: int) -> np.ndarray:
             if entity_detected[i] == 0:
                 del entity_detected[i]
                 print(f"{i} Saiu")
+                with open("presence.txt", "a") as file:
+                    file.write(f"\nPessoa {i} saiu.")
 
     annotated_frame = box_annotator.annotate(frame.copy(), detections=detections)
     return label_annotator.annotate(
@@ -42,29 +47,29 @@ def callback(frame: np.ndarray, _: int) -> np.ndarray:
     )
 
 
-# Video File
-sv.process_video(
-    source_path="./media/cars2.mp4", target_path="result.mp4", callback=callback
-)
+# # Video File
+# sv.process_video(
+#     source_path="./media/cars2.mp4", target_path="result.mp4", callback=callback
+# )
 
 
-# # Live Video
-# cap = cv2.VideoCapture(0)
+# Live Video
+cap = cv2.VideoCapture(0)
 
-# while True:
-#     ret, frame = cap.read()
-#     if not ret:
-#         break
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
 
-#     # Process and annotate the frame
-#     annotated_frame = callback(frame, 0)
+    # Process and annotate the frame
+    annotated_frame = callback(frame, 0)
 
-#     # Display the resulting frame
-#     cv2.imshow("Frame", annotated_frame)
+    # Display the resulting frame
+    cv2.imshow("Frame", annotated_frame)
 
-#     # Break the loop on 'q' key press
-#     if cv2.waitKey(1) & 0xFF == ord("q"):
-#         break
+    # Break the loop on 'q' key press
+    if cv2.waitKey(1) & 0xFF == ord("q"):
+        break
 
-# cap.release()
-# cv2.destroyAllWindows()
+cap.release()
+cv2.destroyAllWindows()
